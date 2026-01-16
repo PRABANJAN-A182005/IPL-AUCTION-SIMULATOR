@@ -1,533 +1,183 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
+<title>IPL Auction – RTM + Highest Bid</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IPL 2025 Auction Simulator</title>
-<style>
-:root{--card-bg: rgba(255,255,255,0.92);--accent:#ffb400;--muted:#666}
-html,body{height:100%;margin-top:20px;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
-body{background:#06172b;color:#111;display:flex;gap:18px;padding:28px;box-sizing:border-box;align-items:flex-start;justify-content:center;}
-.app{width:1300px;display:grid;grid-template-columns:320px 1fr 320px;gap:18px}
-.panel{background:var(--card-bg);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(10,10,10,0.12)}
-h2{margin:0 0 12px 0;font-size:18px}
-.teams-list{display:flex;flex-direction:column;gap:8px;max-height:48vh;overflow:auto;padding-right:6px}
-.team-card{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.6));}
-.team-logo{width:44px;height:44px;border-radius:6px;background:#eee;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted)}
-.team-meta{flex:1}
-.team-meta small{display:block;color:var(--muted);font-size:12px}
-.btn{background:var(--accent);color:#04263b;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
-.btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(0,0,0,0.06)}
-.auction{display:flex;flex-direction:column;gap:12px}
-.player-card{display:grid;grid-template-columns:1fr 260px;gap:12px;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9))}
-.player-photo{height:180px;border-radius:10px;background:#fafafa;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)}
-.player-info h3{margin:0}
-.player-stats{display:flex;gap:10px;font-size:13px;color:var(--muted);margin-top:6px}
-.bidding{background:linear-gradient(180deg,#fff,#fff);padding:12px;border-radius:10px;display:flex;align-items:center;gap:12px}
-.bidding .teams{display:flex;gap:8px;flex-wrap:wrap}
-.bid-button{min-width:84px;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:#fff;cursor:pointer}
-.current-high{flex:1;padding:12px;border-radius:8px;background:linear-gradient(90deg,#fff,#fff);display:flex;flex-direction:column;gap:4px}
-.small{font-size:12px;color:var(--muted)}
-.summary .tiles{display:flex;gap:8px;margin-bottom:8px}
-.tile{flex:1;padding:10px;border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,0.95),rgba(255,255,255,0.9));text-align:center}
-.list{max-height:36vh;overflow:auto;padding-right:6px}
-label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
-input[type=text],input[type=number],select{width:100%;padding:8px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);box-sizing:border-box}
-footer{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
 
-/* Mobile Dashboard Only */
-@media (max-width: 768px) {
-  .app { display: block; }
-  aside.panel, main.panel { display: none; }
-  aside.summary { display: block; width: 100%; margin: 0; }
+<style>
+body{margin:0;background:#06172b;font-family:Arial}
+.app{max-width:1400px;margin:auto;padding:12px;
+display:grid;grid-template-columns:300px 1fr 300px;gap:12px}
+.panel{background:#fff;border-radius:10px;padding:12px}
+h2,h3{margin:0 0 8px}
+.small{font-size:12px;color:#555}
+
+.btn{padding:8px 12px;border-radius:8px;border:none;
+background:#ffb400;font-weight:600;cursor:pointer}
+.btn.ghost{background:#fff;border:1px solid #ccc}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+.team{display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #eee}
+.team img{width:32px;height:32px;border-radius:6px}
+
+.bid-btn{padding:6px 10px;border-radius:6px;border:1px solid #ccc;background:#fff}
+.bid-btn:disabled{opacity:.4}
+
+.player{display:flex;gap:16px}
+.photo{width:180px;height:180px;background:#eee;border-radius:10px}
+.photo img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+
+.price{font-size:26px;font-weight:700}
+.timer{font-size:22px;color:#d71920;font-weight:700}
+
+.log div{border-bottom:1px dashed #ddd;padding:4px 0}
+
+.toast{
+position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+background:#000;color:#fff;padding:10px;border-radius:8px;
+opacity:0;transition:.3s
 }
+.toast.show{opacity:1}
+
+.highest{display:flex;gap:10px;align-items:center;margin-top:6px}
+.highest img{width:60px;height:60px;border-radius:8px;object-fit:cover;background:#eee}
+.highest .amt{font-size:18px;font-weight:700;color:#d71920}
 </style>
 </head>
+
 <body>
 <div class="app">
 
-<!-- LEFT: Teams & Settings -->
+<!-- TEAMS -->
 <aside class="panel">
-  <h2>Teams</h2>
-  <div class="teams-list" id="teamsList"></div>
-  <hr style="margin:12px 0;border:none;border-top:1px solid rgba(0,0,0,0.06)">
-  <h2>Create Team</h2>
-  <div style="display:grid;gap:8px">
-    <label>Team Name<input id="teamName" type="text" placeholder="e.g., Chennai Challengers"></label>
-    <label>Logo URL<input id="teamLogo" type="text" placeholder="Image URL"></label>
-    <label>Initial Purse (Cr)<input id="teamPurse" type="number" value="100" min="1"></label>
-    <label>RTM Cards <input id="teamRTM" type="number" value="3" min="0"></label>
-    <div style="display:flex;gap:8px"><button class="btn" id="createTeamBtn">Create Team</button><button class="btn ghost" id="resetTeamsBtn">Reset Teams</button></div>
-  </div>
-  <hr style="margin:12px 0;border:none;border-top:1px solid rgba(0,0,0,0.06)">
-  <h2>Settings</h2>
-  <label>Max Team Size <input id="maxTeamSize" type="number" value="25" min="1"></label>
-  <label>Default Purse (Cr) <input id="defaultPurse" type="number" value="100" min="1"></label>
-  <label>Bidding Increments (Lakh) <select id="bidStep">
-    <option value="10">10L</option>
-    <option value="25">25L</option>
-    <option value="50">50L</option>
-    <option value="100">1Cr</option>
-  </select></label>
+<h2>Teams</h2>
+<div id="teams"></div>
 </aside>
 
-<!-- MIDDLE: Auction -->
-<main class="auction panel">
-  <!-- Auction header -->
-  <div class="auction-header">
-    <h2>Auction</h2>
-    <div class="auction-buttons">
-      <button class="btn ghost" id="prevPlayer">Prev</button>
-      <button class="btn ghost" id="skipPlayer">Skip</button>
-      <button class="btn" id="sellPlayer">Sell</button>
-      <button class="btn ghost" id="useRTM">Use RTM</button>
-      <button class="btn ghost" id="autoBidBtn">Start Auto Bidding</button>
-      <button class="btn ghost" id="resetAuction">Reset Auction</button>
-    </div>
-  </div>
+<!-- AUCTION -->
+<main class="panel">
+<h2>Auction</h2>
 
-  <!-- Player card -->
-  <div class="player-card">
-    <!-- Left: Player photo + current highest bid -->
-    <div class="player-left">
-      <div class="player-photo" id="playerPhoto">Player</div>
-      <div class="current-high" id="currentHigh">
-        <div class="small">Current Highest Bid</div>
-        <div class="highest" id="highestBid">-</div>
-        <div class="small" id="highestBy">-</div>
-      </div>
-    </div>
+<div class="player">
+ <div>
+  <div class="photo" id="photo"></div>
+  <div class="price" id="price">-</div>
+  <div class="small" id="leader">-</div>
+  <div class="timer" id="timer">20</div>
+ </div>
 
-    <!-- Right: Player info + bidding -->
-    <div class="player-right">
-      <div class="player-info">
-        <h3 id="playerName">-</h3>
-        <div class="small" id="playerRole">Role: - | Country: - | Base: -</div>
-        <div class="player-stats" id="playerStats"></div>
-      </div>
+ <div style="flex:1">
+  <h3 id="pname"></h3>
+  <div class="small" id="meta"></div>
+  <h4>Bid</h4>
+  <div id="bidButtons"></div>
+ </div>
+</div>
 
-      <div class="bidding">
-        <div class="bid-teams">
-          <div class="small">Place bid (click team button to increase by step)</div>
-          <div id="bidButtons" class="teams"></div>
-        </div>
-        <div class="bid-step-box">
-          <div class="small">Bid Step</div>
-          <div id="showStep" class="step-value">10L</div>
-        </div>
-      </div>
-    </div>
-  </div>
+<div style="margin-top:10px">
+ <button class="btn ghost" onclick="resetBid()">Reset Bid</button>
+ <button class="btn ghost" onclick="undoBid()">Undo</button>
+ <button class="btn" onclick="sell()">SELL</button>
+ <button class="btn ghost" onclick="unsold()">UNSOLD</button>
+</div>
 
-  <!-- Unsold players & auction progress -->
-  <div class="auction-footer">
-    <div class="panel unsold-panel">
-      <h3>Unsold Players</h3>
-      <div id="unsoldList" class="list small"></div>
-    </div>
-    <div class="panel progress-panel">
-      <h3>Auction Progress</h3>
-      <div class="small">Sold: <span id="soldCount">0</span></div>
-      <div class="small">Unsold: <span id="unsoldCount">0</span></div>
-      <div class="small">Current Index: <span id="currentIndex">0</span></div>
-    </div>
-  </div>
+<hr>
+<h3>Log</h3>
+<div id="log" class="log"></div>
 </main>
 
-<style>
-/* Auction Header */
-.auction-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
+<!-- STATUS -->
+<aside class="panel">
+<h3>Highest Bid</h3>
+<div id="highestBidBlock" class="small">No bids yet</div>
 
-.auction-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* Player Card */
-.player-card {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-  align-items: flex-start;
-}
-
-/* Left section: photo + current highest bid */
-.player-left {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-.player-photo {
-  width: 220px;
-  height: 220px;
-  background: #ddd;
-  border-radius: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.current-high {
-  background: #f7f7f7;
-  padding: 12px;
-  border-radius: 10px;
-  text-align: center;
-  min-width: 160px;
-}
-
-.current-high .highest {
-  font-size: 26px;
-  font-weight: 700;
-  margin-top: 4px;
-}
-
-/* Right section: player info + bidding */
-.player-right {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 260px;
-}
-
-.player-info {
-  margin-bottom: 16px;
-  text-align: left;
-}
-
-/* Bidding layout */
-.bidding {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.bid-teams {
-  flex: 1;
-}
-
-.teams {
-  display: flex;
-  gap: 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-
-.teams::-webkit-scrollbar {
-  height: 6px;
-}
-.teams::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 6px;
-}
-
-/* Bid step box */
-.bid-step-box {
-  width: 150px;
-  text-align: center;
-}
-.step-value {
-  font-weight: 700;
-  font-size: 20px;
-  margin-top: 4px;
-}
-
-/* Auction Footer */
-.auction-footer {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.unsold-panel {
-  flex: 1;
-}
-
-.progress-panel {
-  width: 220px;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .player-card {
-    flex-direction: column;
-    align-items: center;
-  }
-  .player-left {
-    flex-direction: column;
-    align-items: center;
-  }
-  .player-photo {
-    width: 180px;
-    height: 180px;
-  }
-  .current-high {
-    min-width: unset;
-    margin-top: 12px;
-  }
-  .player-right {
-    min-width: unset;
-    width: 100%;
-  }
-  .bid-step-box {
-    width: 100%;
-  }
-}
-</style>
-
-
-<!-- RIGHT: Dashboard -->
-<aside class="panel summary">
-  <h2>Dashboard</h2>
-  <div class="tiles">
-    <div class="tile">
-      <div class="small">Players Sold</div>
-      <div id="totalPlayers" class="value">0</div>
-    </div>
-    <div class="tile">
-      <div class="small">Total Spent (Cr)</div>
-      <div id="totalSpent" class="value">0</div>
-    </div>
-  </div>
-
-  <h3>Top 5 High Bid Players</h3>
-  <div id="topPlayers" class="list small"></div>
-
-  <h3>Teams Summary</h3>
-  <div id="teamsSummary" class="list small"></div>
+<hr>
+<h2>Status</h2>
+<div class="small">Player <b id="idx"></b></div>
+<div class="small">Sold <b id="sold">0</b></div>
 </aside>
-
-<style>
-/* Sidebar styles */
-.panel.summary {
-  padding: 1rem;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  margin-bottom: 1rem;
-}
-
-/* Tile layout */
-.tiles {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.tile {
-  flex: 1 1 120px;
-  background: #f9f9f9;
-  border-radius: 10px;
-  padding: 0.75rem;
-  text-align: center;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-}
-
-.tile .small {
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.tile .value {
-  font-weight: 700;
-  font-size: 1.3rem;
-  margin-top: 0.25rem;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .panel.summary {
-    padding: 0.8rem;
-  }
-
-  .tiles {
-    flex-direction: column;
-  }
-
-  .tile {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .panel.summary h2 {
-    font-size: 1.2rem;
-  }
-
-  .tile .value {
-    font-size: 1.1rem;
-  }
-}
-</style>
-
 
 </div>
 
+<div id="toast" class="toast"></div>
+
 <script>
-// --- Sample Players ---
-const players = 
+/* ---------- UTIL ---------- */
+const $=id=>document.getElementById(id);
+const toast=m=>{
+ const t=$('toast');t.textContent=m;
+ t.classList.add('show');
+ setTimeout(()=>t.classList.remove('show'),2500);
+}
+const log=m=>$('log').innerHTML=
+ `<div>${new Date().toLocaleTimeString()} — ${m}</div>`+$('log').innerHTML;
+
+/* ---------- DATA ---------- */
+ const players = 
 
   [
   
-  { name:'Rahul Tripathi', role:'Batsman', country:'India', base:75, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/188.png' },
-{ name:'Jake Fraser-McGurk', role:'Batsman', country:'Australia', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/3115.png' },
-{ name:'MS Dhoni', role:'Batsman', country:'India', base:200, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/57.png' },
-{ name:'Harry Brook', role:'Batsman', country:'England', base:200, prevTeam:'DC', photo:'https://static-files.cricket-australia.pulselive.com/headshots/288/159-camedia.png' },
-{ name:'KL Rahul', role:'Batsman', country:'India', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/19.png' },
-{ name:'Jos Buttler', role:'Batsman', country:'England', base:200, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/182.png' },
-{ name:'Shubman Gill', role:'Batsman', country:'India', base:200, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/62.png' },
-{ name:'Manish Pandey', role:'Batsman', country:'India', base:75, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/16.png' },
-{ name:'Rahmanullah Gurbaz', role:'Batsman', country:'Afghanistan', base:200, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/641.png' },
-{ name:'Quinton de Kock', role:'Batsman', country:'South Africa', base:200, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/170.png' },
-{ name:'Rinku Singh', role:'Batsman', country:'India', base:200, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/152.png' },
-{ name:'Aiden Markram', role:'Batsman', country:'South Africa', base:200, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/287.png' },
-{ name:'David Miller', role:'Batsman', country:'South Africa', base:150, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/128.png' },
-{ name:'Rishabh Pant', role:'Batsman', country:'India', base:200, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/18.png' },
-{ name:'Nicholas Pooran', role:'Batsman', country:'West Indies', base:200, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/136.png' },
-{ name:'Suryakumar Yadav', role:'Batsman', country:'India', base:200, prevTeam:'MI', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/174.png' },
-{ name:'Rohit Sharma', role:'Batsman', country:'India', base:200, prevTeam:'MI', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/6.png' },
-{ name:'Pyla Avinash', role:'Batsman', country:'India', base:30, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/3573.png' },
-{ name:'Vishnu Vinod', role:'Batsman', country:'India', base:30, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/581.png' },
-
-{ name:'Kane Williamson', role:'Batsman', country:'New Zealand', base:150, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2024/65.png' },
-{ name:'Shreyas Iyer', role:'Batsman', country:'India', base:200, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/12.png' },
-{ name:'Jitesh Sharma', role:'Batsman', country:'India', base:100, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/1000.png' },
-{ name:'Phil Salt', role:'Batsman', country:'England', base:200, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/1220.png' },
-
-{ name:'Jonny Bairstow', role:'Batsman', country:'England', base:150, prevTeam:'MI', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/216.png' },
-{ name:'Devdutt Padikkal', role:'Batsman', country:'India', base:200, prevTeam:'RCB', photo:'https://www.royalchallengers.com/PRRCB01/public/styles/1061x767_landscape/public/2020-08/Dev%20Padikkal.jpg?h=12907efd&itok=F2vVaXL-' },
-{ name:'Virat Kohli', role:'Batsman', country:'India', base:200, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/2.png' },
-{ name:'Sanju Samson', role:'Batsman', country:'India', base:200, prevTeam:'RR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/190.png' },
-{ name:'Shimron Hetmyer', role:'Batsman', country:'West Indies', base:200, prevTeam:'RR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/210.png' },
-{ name:'Ishan Kishan', role:'Batsman', country:'India', base:200, prevTeam:'SRH', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/164.png' },
-{ name:'Heinrich Klaasen', role:'Batsman', country:'South Africa', base:200, prevTeam:'SRH', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/202.png' },
-{ name:'Devon Conway', role:'Batsman', country:'New Zealand', base:200, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/601.png' },
-{ name:'Travis Head', role:'Batsman', country:'Australia', base:200, prevTeam:'SRH', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/37.png' },
-{ name:'Ajinkya Rahane', role:'Batsman', country:'India', base:150, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/44.png' },
-{ name:'Vansh Bedi', role:'Batsman', country:'India', base:30, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/3558.png' },
-{ name:'Faf du Plessis', role:'Batsman', country:'South Africa', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/94.png' },
-{ name:'Ryan Rickelton', role:'Batsman', country:'South Africa', base:100, prevTeam:'MI', photo:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRMOkc9lCQ-VCzq9bQqjAlel5ibcdkMvYMSVA&s' },
-{ name:'Karun Nair', role:'Batsman', country:'India', base:30, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/131.png' },
-{ name:'Ruturaj Gaikwad', role:'Batsman', country:'India', base:200, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/102.png' },
-{ name:'Donovan Ferreira', role:'Batsman', country:'South Africa', base:75, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/2033.png' },
-{ name:'David Warner', role:'Batsman', country:'Australia', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2024/214.png' },
-{ name:'Glenn Phillips', role:'Batsman', country:'New Zealand', base:200, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/635.png' },
-{ name:'Rovman Powell', role:'Batsman', country:'West Indies', base:150, prevTeam:'KKR', photo:'https://www.kkr.in/static-assets/images/players/65291.png?v=111.76' },
-{ name:'Josh Inglis', role:'Batsman', country:'Australia', base:200, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/647.png' },
- { name:'Dewald Brevis', role:'Batsman', country:'South Africa', base:150, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/797.png' },
-
- { name:'Mayank Agarwal', role:'Batsman', country:'India', base:150, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/55.png' },
-
-  {
-    name: 'C Andre Siddarth',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'CSK',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/3157.png'
+  { id:1, name:'Rahul Tripathi', role:'Batsman', country:'India', base:75, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/188.png' },
+{ id:2, name:'Jake Fraser-McGurk', role:'Batsman', country:'Australia', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/3115.png' },
+{ id:3, name:'MS Dhoni', role:'Batsman', country:'India', base:200, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/57.png' },
+{ id:4, name:'Harry Brook', role:'Batsman', country:'England', base:200, prevTeam:'DC', photo:'https://static-files.cricket-australia.pulselive.com/headshots/288/159-camedia.png' },
+{ id:5, name:'KL Rahul', role:'Batsman', country:'India', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/19.png' },
+{ id:6, name:'Jos Buttler', role:'Batsman', country:'England', base:200, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/182.png' },
+{ id:7, name:'Shubman Gill', role:'Batsman', country:'India', base:200, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/62.png' },
+{ id:8, name:'Manish Pandey', role:'Batsman', country:'India', base:75, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/16.png' },
+{ id:9, name:'Rahmanullah Gurbaz', role:'Batsman', country:'Afghanistan', base:200, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/641.png' },
+{ id:10, name:'Quinton de Kock', role:'Batsman', country:'South Africa', base:200, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/170.png' },
+{ id:11, name:'Rinku Singh', role:'Batsman', country:'India', base:200, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/152.png' },
+{ id:12, name:'Aiden Markram', role:'Batsman', country:'South Africa', base:200, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/287.png' },
+{ id:13, name:'David Miller', role:'Batsman', country:'South Africa', base:150, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/128.png' },
+{ id:14, name:'Rishabh Pant', role:'Batsman', country:'India', base:200, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/18.png' },
+{ id:15, name:'Nicholas Pooran', role:'Batsman', country:'West Indies', base:200, prevTeam:'LSG', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/136.png' },
+{ id:16, name:'Suryakumar Yadav', role:'Batsman', country:'India', base:200, prevTeam:'MI', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/174.png' },
+{ id:17, name:'Rohit Sharma', role:'Batsman', country:'India', base:200, prevTeam:'MI', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/6.png' },
+{ id:18, name:'Pyla Avinash', role:'Batsman', country:'India', base:30, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/3573.png' },
+{ id:19, name:'Vishnu Vinod', role:'Batsman', country:'India', base:30, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/581.png' },
+{ id:20, name:'Kane Williamson', role:'Batsman', country:'New Zealand', base:150, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2024/65.png' },
+{ id:21, name:'Shreyas Iyer', role:'Batsman', country:'India', base:200, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/12.png' },
+{ id:22, name:'Jitesh Sharma', role:'Batsman', country:'India', base:100, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/1000.png' },
+{ id:23, name:'Phil Salt', role:'Batsman', country:'England', base:200, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/1220.png' },
+{ id:24, name:'Jonny Bairstow', role:'Batsman', country:'England', base:150, prevTeam:'MI', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/216.png' },
+{ id:25, name:'Devdutt Padikkal', role:'Batsman', country:'India', base:200, prevTeam:'RCB', photo:'https://www.royalchallengers.com/PRRCB01/public/styles/1061x767_landscape/public/2020-08/Dev%20Padikkal.jpg?h=12907efd&itok=F2vVaXL-' },
+{ id:26, name:'Virat Kohli', role:'Batsman', country:'India', base:200, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/2.png' },
+{ id:27, name:'Sanju Samson', role:'Batsman', country:'India', base:200, prevTeam:'RR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/190.png' },
+{ id:28, name:'Shimron Hetmyer', role:'Batsman', country:'West Indies', base:200, prevTeam:'RR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/210.png' },
+{ id:29, name:'Ishan Kishan', role:'Batsman', country:'India', base:200, prevTeam:'SRH', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/164.png' },
+{ id:30, name:'Heinrich Klaasen', role:'Batsman', country:'South Africa', base:200, prevTeam:'SRH', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/202.png' },
+{ id:31, name:'Devon Conway', role:'Batsman', country:'New Zealand', base:200, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/601.png' },
+{ id:32, name:'Travis Head', role:'Batsman', country:'Australia', base:200, prevTeam:'SRH', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/37.png' },
+{ id:33, name:'Ajinkya Rahane', role:'Batsman', country:'India', base:150, prevTeam:'KKR', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/44.png' },
+{ id:34, name:'Vansh Bedi', role:'Batsman', country:'India', base:30, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/3558.png' },
+{ id:35, name:'Faf du Plessis', role:'Batsman', country:'South Africa', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/94.png' },
+{ id:36, name:'Ryan Rickelton', role:'Batsman', country:'South Africa', base:100, prevTeam:'MI', photo:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRMOkc9lCQ-VCzq9bQqjAlel5ibcdkMvYMSVA&s' },
+{ id:37, name:'Karun Nair', role:'Batsman', country:'India', base:30, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/131.png' },
+{ id:38, name:'Ruturaj Gaikwad', role:'Batsman', country:'India', base:200, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/102.png' },
+{ id:39, name:'Donovan Ferreira', role:'Batsman', country:'South Africa', base:75, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/2033.png' },
+{ id:40, name:'David Warner', role:'Batsman', country:'Australia', base:200, prevTeam:'DC', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2024/214.png' },
+{ id:41, name:'Glenn Phillips', role:'Batsman', country:'New Zealand', base:200, prevTeam:'GT', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/635.png' },
+{ id:42, name:'Rovman Powell', role:'Batsman', country:'West Indies', base:150, prevTeam:'KKR', photo:'https://www.kkr.in/static-assets/images/players/65291.png?v=111.76' },
+{ id:43, name:'Josh Inglis', role:'Batsman', country:'Australia', base:200, prevTeam:'PBKS', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/647.png' },
+{ id:44, name:'Dewald Brevis', role:'Batsman', country:'South Africa', base:150, prevTeam:'CSK', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/797.png' },
+{ id:45, name:'Mayank Agarwal', role:'Batsman', country:'India', base:150, prevTeam:'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/55.png' },
+{ id:46, name:'C Andre Siddarth', role: 'Batsman', country: 'India', base: 30, prevTeam: 'CSK', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/3157.png'},
+{ id:47, name:'Tristan Stubbs', role: 'Batsman', country: 'South Africa', base: 200, prevTeam: 'DC', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1017.png' },
+{ id:48, name:'Abishek Porel', role: 'Batsman', country: 'India', base: 200, prevTeam: 'DC', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1580.png' },
+{ id:49, name:'Anuj Rawat', role: 'Batsman', country: 'India', base: 30, prevTeam: 'GT', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/534.png' },
+{ id:50, name:'Luvnith Sisodia', role: 'Batsman', country: 'India', base: 30, prevTeam: 'KKR', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1009.png' },
+  { id:51, name: 'Angkrish Raghuvanshi', role: 'Batsman', country: 'India', base: 30, prevTeam: 'KKR', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/787.png' },
+  { id:52, name: 'Aryan Juyal', role: 'Batsman', country: 'India', base: 30, prevTeam: 'LSG', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/990.png' },
+  { id:53, name: 'Nehal Wadhera', role: 'Batsman', country: 'India', base: 30, prevTeam: 'PBKS', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1541.png' },
+  { id:54, name: 'Prabhsimran Singh', role: 'Batsman', country: 'India', base: 200, prevTeam: 'PBKS', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/137.png' },
+  { id:55, name: 'Rajat Patidar', role: 'Batsman', country: 'India', base: 100, prevTeam: 'RCB', photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/597.png' },
+  { id:56, name:'Dhruv Jurel', role:'Batsman', country:'India', base:'200',
+    prevTeam:'RR',
+    photo:'https://documents.iplt20.com/ipl/IPLHeadshot2025/1004.png'
   },
-  {
-    name: 'Tristan Stubbs',
-    role: 'Batsman',
-    country: 'South Africa',
-    base: 200,
-    prevTeam: 'DC',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1017.png'
-  },
-  {
-    name: 'Abishek Porel',
-    role: 'Batsman',
-    country: 'India',
-    base: 200,
-    prevTeam: 'DC',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1580.png'
-  },
-  {
-    name: 'Anuj Rawat',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'GT',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/534.png'
-  },
-  {
-    name: 'Luvnith Sisodia',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'KKR',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1009.png'
-  },
-  {
-    name: 'Angkrish Raghuvanshi',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'KKR',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/787.png'
-  },
-  {
-    name: 'Aryan Juyal',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'LSG',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/990.png'
-  },
-  {
-    name: 'Nehal Wadhera',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'PBKS',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1541.png'
-  },
-  {
-    name: 'Prabhsimran Singh',
-    role: 'Batsman',
-    country: 'India',
-    base: 200,
-    prevTeam: 'PBKS',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/137.png'
-  },
-  {
-    name: 'Rajat Patidar',
-    role: 'Batsman',
-    country: 'India',
-    base: 100,
-    prevTeam: 'RCB',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/597.png'
-  },
-  {
-    name: 'Dhruv Jurel',
-    role: 'Batsman',
-    country: 'India',
-    base: 200,
-    prevTeam: 'RR',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/1004.png'
-  },
-  {
-    name: 'Aniket Verma',
-    role: 'Batsman',
-    country: 'India',
-    base: 30,
-    prevTeam: 'SRH',
-    photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/3576.png'
-  },
+  { id:57, name: 'Aniket Verma', role: 'Batsman', country: 'India', base: 30, prevTeam: 'SRH', photo: 'https://documents.iplt20.com/ipl/IPLHeadshot2025/3576.png' },
   {
     name: 'Atharva Taide',
     role: 'Batsman',
@@ -1923,339 +1573,251 @@ const players =
   }
 ];
 
-// --- State ---
-let state = {
-  teams: [],
-  defaultPurse: 120,
-  maxTeamSize: 16,
-  bidStepLakh: 25,
-  currentIndex: 0,
-  highestBid: 0,       // in Lakh
-  highestBy: null,     // team object
-  soldCount: 0,
-  unsold: []
+const teamNames=['CSK','MI','RCB','KKR','GT','LSG','RR','SRH','DC','PBKS'];
+
+/* ---------- STATE ---------- */
+const state={
+ i:0,
+ bid:0,
+ leader:null,
+ last:null,
+ history:[],
+ sold:0,
+ hasBid:false,
+ step:25,
+ max:25,
+ os:8,
+ time:20,
+ timer:null,
+ teams:teamNames.map(n=>({
+  name:n,
+  logo:`https://documents.iplt20.com/ipl/${n}/Logos/Logooutline/${n}outline.png`,
+  purse:100,
+  players:[],
+  rtm:3
+ }))
 };
 
-// --- Elements ---
-const teamsList = document.getElementById('teamsList');
-const createTeamBtn = document.getElementById('createTeamBtn');
-const resetTeamsBtn = document.getElementById('resetTeamsBtn');
-const teamNameIn = document.getElementById('teamName');
-const teamLogoIn = document.getElementById('teamLogo');
-const teamPurseIn = document.getElementById('teamPurse');
-const teamRTMIn = document.getElementById('teamRTM');
-const maxTeamSizeIn = document.getElementById('maxTeamSize');
-const defaultPurseIn = document.getElementById('defaultPurse');
-const bidStepSelect = document.getElementById('bidStep');
-const playerName = document.getElementById('playerName');
-const playerRole = document.getElementById('playerRole');
-const playerPhoto = document.getElementById('playerPhoto');
-const playerStats = document.getElementById('playerStats');
-const highestBidEl = document.getElementById('highestBid');
-const highestByEl = document.getElementById('highestBy');
-const bidButtons = document.getElementById('bidButtons');
-const showStep = document.getElementById('showStep');
-const unsoldList = document.getElementById('unsoldList');
-const soldCountEl = document.getElementById('soldCount');
-const unsoldCountEl = document.getElementById('unsoldCount');
-const currentIndexEl = document.getElementById('currentIndex');
-const totalPlayersEl = document.getElementById('totalPlayers');
-const totalSpentEl = document.getElementById('totalSpent');
-const teamsSummary = document.getElementById('teamsSummary');
-const topPlayersEl = document.getElementById('topPlayers');
-const prevPlayerBtn = document.getElementById('prevPlayer');
-const skipPlayerBtn = document.getElementById('skipPlayer');
-const sellPlayerBtn = document.getElementById('sellPlayer');
-const resetAuctionBtn = document.getElementById('resetAuction');
-const useRTMBtn = document.getElementById('useRTM');
-const autoBidBtn = document.getElementById('autoBidBtn');
+/* ---------- HELPERS ---------- */
+const fmt=l=>l>=100?(l/100)+' Cr':l+' L';
+const afford=(t,b)=>b/100<=t.purse;
+const osCount=t=>t.players.filter(p=>p.country!=='India').length;
+const prevTeam=p=>state.teams.find(t=>t.name===p.prevTeam);
 
-// --- Helpers ---
-function formatLakhToCr(lakh){
-  if(lakh >= 100) return (lakh/100).toFixed(lakh%100===0?0:2)+' Cr';
-  return lakh+' L';
-}
-function affordable(team, bidLakh){
-  return (bidLakh/100) <= team.purse;
+/* ---------- TIMER ---------- */
+function startTimer(){
+ clearInterval(state.timer);
+ state.time=20;
+ $('timer').textContent=state.time;
+ state.timer=setInterval(()=>{
+  state.time--;
+  $('timer').textContent=state.time;
+  if(state.time<=0){
+   clearInterval(state.timer);
+   if(state.leader===null){
+    log(players[state.i].name+' UNSOLD (timer)');
+    next();
+   }
+  }
+ },1000);
 }
 
-// --- Settings ---
-function saveSettings(){
-  state.defaultPurse = Number(defaultPurseIn.value)||120;
-  state.maxTeamSize = Number(maxTeamSizeIn.value)||16;
-  state.bidStepLakh = Number(bidStepSelect.value)||25;
-  showStep.textContent = (state.bidStepLakh>=100)? (state.bidStepLakh/100)+'Cr': state.bidStepLakh+'L';
-}
-
-// --- Teams ---
-function createTeam(name, logo, purse, rtm){
-  const t = {
-    id: Date.now()+Math.random(),
-    name: name || 'Team'+(state.teams.length+1),
-    logo: logo || (name ? name.slice(0,2).toUpperCase() : 'T'),
-    purse: Number(purse) || state.defaultPurse,
-    players: [],
-    spent: 0,
-    rtm: Number(rtm) || 3
-  };
-  state.teams.push(t);
-  renderTeams(); renderTeamsSummary(); renderBidButtons();
-}
-
-function resetTeams(){
-  if(!confirm('Reset all teams? This removes teams and their data.')) return;
-  state.teams=[]; renderTeams(); renderTeamsSummary(); renderBidButtons();
-}
-
+/* ---------- RENDER ---------- */
 function renderTeams(){
-  teamsList.innerHTML='';
-  state.teams.forEach(t=>{
-    const el=document.createElement('div'); el.className='team-card';
-    el.innerHTML=`
-      <img src="${t.logo}" style="width:44px;height:44px;border-radius:6px;object-fit:cover">
-      <div class="team-meta">
-        <strong>${t.name}</strong>
-        <small>Budget: ${t.purse.toFixed(2)} Cr | Players: ${t.players.length} | RTM: ${t.rtm}</small>
-        <div style="margin-top:4px;display:flex;gap:4px">
-          <button class="btn ghost" onclick="editTeam('${t.id}')">Edit</button>
-        </div>
-      </div>`;
-    teamsList.appendChild(el);
-  });
+ $('teams').innerHTML='';
+ state.teams.forEach(t=>{
+  $('teams').innerHTML+=`
+  <div class="team">
+   <img src="${t.logo}">
+   <div>
+    <b>${t.name}</b>
+    <div class="small">
+     ₹${t.purse}Cr | ${t.players.length}/25 |
+     OS ${osCount(t)}/8 | RTM ${t.rtm}
+    </div>
+   </div>
+  </div>`;
+ });
 }
 
-function editTeam(id){
-  const team = state.teams.find(t=>t.id==id);
-  if(!team) return;
-  const newPurse = prompt(`Edit purse for ${team.name} (Cr)`, team.purse);
-  if(newPurse!==null && !isNaN(newPurse) && newPurse>=0) team.purse = Number(newPurse);
-  const newRTM = prompt(`Edit RTM cards for ${team.name}`, team.rtm);
-  if(newRTM!==null && !isNaN(newRTM) && newRTM>=0) team.rtm = Number(newRTM);
-  renderTeams(); renderTeamsSummary(); updateDashboardTotals();
+function renderButtons(){
+ $('bidButtons').innerHTML='';
+ state.teams.forEach((t,i)=>{
+  const dis=
+   state.last===i ||
+   !afford(t,state.bid+state.step) ||
+   t.players.length>=state.max ||
+   (players[state.i].country!=='India' && osCount(t)>=state.os);
+
+  const b=document.createElement('button');
+  b.className='bid-btn';
+  b.textContent=t.name;
+  b.disabled=dis;
+  b.onclick=()=>bid(i);
+  $('bidButtons').appendChild(b);
+ });
 }
 
-function renderTeamsSummary(){
-  teamsSummary.innerHTML='';
-  state.teams.forEach(t=>{
-    const d=document.createElement('div');
-    d.style.padding='8px';
-    d.style.borderBottom='1px solid rgba(0,0,0,0.06)';
-    d.innerHTML=`<strong>${t.name}</strong>
-      <div class="small">Budget: ${t.purse.toFixed(2)} Cr | Players: ${t.players.length}/${state.maxTeamSize} | RTM: ${t.rtm}</div>
-      <div class="small">Bought: ${t.players.map(p=>p.name).join(', ')||'—'}</div>`;
-    teamsSummary.appendChild(d);
-  });
+function renderHighestBid(){
+ const box=$('highestBidBlock');
+
+ if(!state.hasBid || state.leader===null){
+  box.innerHTML='No bids yet';
+  return;
+ }
+
+ const p=players[state.i];
+ const t=state.teams[state.leader];
+
+ box.innerHTML=`
+ <div class="highest">
+  <img src="${p.photo}">
+  <div>
+   <b>${p.name}</b><br>
+   ${t.name}<br>
+   <span class="amt">${fmt(state.bid)}</span>
+  </div>
+ </div>`;
 }
 
-function renderBidButtons(){
-  bidButtons.innerHTML='';
-  state.teams.forEach(t=>{
-    const b=document.createElement('button'); b.className='bid-button';
-    b.textContent = `${t.name} (+)`; b.dataset.id=t.id;
-    b.onclick=()=>placeBid(t.id);
-    bidButtons.appendChild(b);
-  });
+function update(){
+ $('price').textContent=fmt(state.bid);
+ $('leader').textContent=state.leader===null?'No bids':state.teams[state.leader].name;
+ $('idx').textContent=state.i+1;
+ $('sold').textContent=state.sold;
+ renderTeams();
+ renderButtons();
+ renderHighestBid();
 }
 
-// --- Auto Bidding ---
-let autoBidInterval=null; let autoBidding=false; let autoBidDelay=2000;
-function startAutoBid(){
-  if(autoBidInterval) return; autoBidding=true; autoBidBtn.textContent='Stop Auto Bidding';
-  autoBidInterval=setInterval(()=>{
-    const nextBid = state.highestBid + state.bidStepLakh;
-    const bidders = state.teams.filter(t=>affordable(t, nextBid));
-    if(bidders.length===0){ stopAutoBid(); return; }
-    const team = bidders[Math.floor(Math.random()*bidders.length)];
-    placeBid(team.id);
-  }, autoBidDelay);
-}
-function stopAutoBid(){
-  if(autoBidInterval){ clearInterval(autoBidInterval); autoBidInterval=null; }
-  autoBidding=false; autoBidBtn.textContent='Start Auto Bidding';
-}
-function toggleAutoBid(){ autoBidding ? stopAutoBid() : startAutoBid(); }
-
-// --- Load Player ---
-function loadPlayer(idx){
-  if(idx<0) idx=0; if(idx>=players.length) idx=players.length-1;
-  state.currentIndex=idx; const p=players[idx];
-  playerName.textContent=p.name+' ('+p.base+' L)';
-  playerRole.textContent=`Role: ${p.role} | Country: ${p.country} | Base: ${p.base} L | Prev Team: ${p.prevTeam}`;
-  if (p.photo) {
-    playerPhoto.innerHTML = `<img src="${p.photo}" 
-        style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
-    } 
-    else {
-       playerPhoto.textContent = p.name.split(' ')[0]; // fallback
-    }
-  playerStats.textContent='';
-  state.highestBid=p.base; state.highestBy=null; updateHighest();
-  currentIndexEl.textContent=state.currentIndex+1; updateDashboardTotals();
+/* ---------- PLAYER ---------- */
+function load(){
+ const p=players[state.i];
+ $('pname').textContent=p.name;
+ $('meta').textContent=
+  `${p.role} | ${p.country} | Base ${p.base}L | Prev ${p.prevTeam}`;
+ $('photo').innerHTML=`<img src="${p.photo}">`;
+ resetBid();
+ startTimer();
 }
 
-function updateHighest(){
-  highestBidEl.textContent=formatLakhToCr(state.highestBid);
-  highestByEl.textContent=state.highestBy ? ('By '+state.highestBy.name) : 'No bids yet';
+function resetBid(){
+ const p=players[state.i];
+ state.bid=p.base;
+ state.leader=null;
+ state.last=null;
+ state.history=[];
+ state.hasBid=false;
+ update();
 }
 
-function placeBid(teamId){
-  const team=state.teams.find(t=>t.id==teamId);
-  if(!team) return alert('Create teams first');
-  const step=state.bidStepLakh; const newBid=state.highestBid+step; const neededCr=newBid/100;
-  if(neededCr>team.purse) return alert(team.name+' does not have enough budget');
-  state.highestBid=newBid; state.highestBy=team; updateHighest();
+/* ---------- BID ---------- */
+function bid(i){
+ if(state.last===i){toast('Same team cannot bid twice');return;}
+
+ const t=state.teams[i];
+ const next=state.bid+state.step;
+
+ if(!afford(t,next)){toast('Insufficient purse');return;}
+ if(players[state.i].country!=='India' && osCount(t)>=state.os){
+  toast('Overseas quota full');return;
+ }
+
+ state.history.push({bid:state.bid,leader:state.leader,last:state.last});
+ state.bid=next;
+ state.leader=i;
+ state.last=i;
+ state.hasBid=true;
+
+ log(`${t.name} bids ${fmt(next)}`);
+ startTimer();
+ update();
 }
 
-// --- RTM Core Flow ---
-function rtmFlow(prevTeam, originalBidder, currentBidLakh, player){
-  // If prev team already highest, nothing to do
-  if(prevTeam===originalBidder) return {winner: originalBidder, bid: currentBidLakh, used:false};
-  if(prevTeam.rtm<=0) { alert(`${prevTeam.name} has no RTM cards left.`); return {winner: originalBidder, bid: currentBidLakh, used:false}; }
-  if(prevTeam.players.length>=state.maxTeamSize){ alert(`${prevTeam.name} squad is full.`); return {winner: originalBidder, bid: currentBidLakh, used:false}; }
-  if(!affordable(prevTeam, currentBidLakh)){ alert(`${prevTeam.name} cannot afford ₹${formatLakhToCr(currentBidLakh)}.`); return {winner: originalBidder, bid: currentBidLakh, used:false}; }
+/* ---------- UNDO ---------- */
+function undoBid(){
+ const h=state.history.pop();
+ if(!h){toast('Nothing to undo');return;}
 
-  const want = confirm(`${prevTeam.name} can use RTM to match ₹${formatLakhToCr(currentBidLakh)} for ${player.name}. Use RTM?`);
-  if(!want) return {winner: originalBidder, bid: currentBidLakh, used:false};
+ const prevBid=state.bid;
+ const prevLeader=state.leader!==null?state.teams[state.leader].name:'No bids';
 
-  // Original bidder gets ONE final raise opportunity
-  let minInc = state.bidStepLakh;
-  const input = prompt(`Original bidder ${originalBidder.name}: Enter final increase (Lakh) ≥ ${minInc}, or leave blank to pass:`, '');
-  const inc = Number(input);
-  if(!input || isNaN(inc) || inc<minInc){
-    // Pass ⇒ prev team gets player at current bid
-    return {winner: prevTeam, bid: currentBidLakh, used:true};
-  }
-  const newBid = currentBidLakh + Math.round(inc);
-  if(!affordable(originalBidder, newBid)){
-    alert(`${originalBidder.name} cannot afford ₹${formatLakhToCr(newBid)}. Passing.`);
-    return {winner: prevTeam, bid: currentBidLakh, used:true};
-  }
-  if(!affordable(prevTeam, newBid)){
-    alert(`${prevTeam.name} cannot afford ₹${formatLakhToCr(newBid)}. Player goes to ${originalBidder.name} at ₹${formatLakhToCr(newBid)}.`);
-    return {winner: originalBidder, bid: newBid, used:false};
-  }
-  const match2 = confirm(`${originalBidder.name} raised to ₹${formatLakhToCr(newBid)}. Should ${prevTeam.name} match (final chance) and use RTM?`);
-  if(match2){ return {winner: prevTeam, bid: newBid, used:true}; }
-  return {winner: originalBidder, bid: newBid, used:false};
+ state.bid=h.bid;
+ state.leader=h.leader;
+ state.last=h.last;
+
+ if(state.history.length===0) state.hasBid=false;
+
+ const newLeader=state.leader===null?'No bids':state.teams[state.leader].name;
+ log(`Undo → ${fmt(prevBid)} (${prevLeader}) reverted to ${fmt(state.bid)} (${newLeader})`);
+ update();
 }
 
-function finalizeSale(team, bidLakh, player){
-  const amountCr = bidLakh/100;
-  if(team.players.length >= state.maxTeamSize){ alert(team.name+' already full'); return false; }
-  if(amountCr > team.purse){ alert(team.name+' cannot afford final amount'); return false; }
-  team.players.push(player);
-  team.purse = +(team.purse - amountCr).toFixed(2);
-  team.spent = +(team.spent + amountCr).toFixed(2);
-  player.sold = true; player.finalBid = bidLakh; player.finalTeam = team.name;
-  state.soldCount++; soldCountEl.textContent = state.soldCount;
-  alert(`${player.name} sold to ${team.name} for ${formatLakhToCr(bidLakh)}`);
-  renderTeamsSummary(); updateTopPlayers(); updateDashboardTotals();
-  return true;
+/* ---------- RTM ---------- */
+function rtmFlow(prev,highest,bid,player){
+ if(prev===highest||prev.rtm<=0||prev.players.length>=state.max||!afford(prev,bid))
+  return {w:highest,b:bid,u:false};
+
+ if(!confirm(`${prev.name} use RTM for ${player.name} at ${fmt(bid)}?`))
+  return {w:highest,b:bid,u:false};
+
+ const inc=Number(prompt(`${highest.name}: final raise ≥${state.step}L`));
+ if(!inc||inc<state.step) return {w:prev,b:bid,u:true};
+
+ const nb=bid+inc;
+ if(!afford(highest,nb)) return {w:prev,b:bid,u:true};
+
+ if(confirm(`${prev.name}, match ${fmt(nb)}?`))
+  return {w:prev,b:nb,u:true};
+
+ return {w:highest,b:nb,u:false};
 }
 
-// --- Sell Player (with RTM) ---
-function sellPlayer(){
-  stopAutoBid();
-  const p = players[state.currentIndex]; if(!p) return;
-  if(!state.highestBy){
-    state.unsold.push(p);
-    unsoldList.innerHTML += `<div>${p.name}</div>`;
-    unsoldCountEl.textContent = state.unsold.length;
-    alert(p.name+' marked unsold');
-    loadPlayer(state.currentIndex+1);
-    return;
-  }
-  let winner = state.highestBy; let bid = state.highestBid; const prevTeam = state.teams.find(t=>t.name===p.prevTeam);
-  if(prevTeam && prevTeam!==winner){
-    const res = rtmFlow(prevTeam, winner, bid, p);
-    winner = res.winner; bid = res.bid; if(res.used) prevTeam.rtm--;
-  }
-  if(finalizeSale(winner, bid, p)){
-    loadPlayer(state.currentIndex+1);
-  }
+/* ---------- SELL ---------- */
+function sell(){
+ clearInterval(state.timer);
+ if(state.leader===null){toast('No bids');return;}
+
+ const p=players[state.i];
+ const highest=state.teams[state.leader];
+ const prev=prevTeam(p);
+
+ let win=highest, fb=state.bid;
+ if(prev && prev!==highest){
+  const r=rtmFlow(prev,highest,state.bid,p);
+  win=r.w;fb=r.b;
+  if(r.u){prev.rtm--;log(prev.name+' used RTM');}
+ }
+
+ win.players.push(p);
+ win.purse=(win.purse-fb/100).toFixed(2);
+ state.sold++;
+ log(`${p.name} SOLD to ${win.name} for ${fmt(fb)}`);
+ next();
 }
 
-// --- Use RTM button: invoke RTM immediately (optional) ---
-function useRTM(){
-  stopAutoBid();
-  const p=players[state.currentIndex]; if(!p) return alert('No player');
-  if(!state.highestBy) return alert('No current highest bid');
-  const prevTeam=state.teams.find(t=>t.name===p.prevTeam);
-  if(!prevTeam) return alert('Previous team not found');
-  const res = rtmFlow(prevTeam, state.highestBy, state.highestBid, p);
-  if(res.winner===prevTeam){
-    if(res.used) prevTeam.rtm--;
-    finalizeSale(prevTeam, res.bid, p);
-    loadPlayer(state.currentIndex+1);
-  } else {
-    // If original bidder remains winner at increased bid, update the current highest
-    state.highestBid = res.bid; state.highestBy = res.winner; updateHighest();
-  }
+/* ---------- FLOW ---------- */
+function unsold(){
+ clearInterval(state.timer);
+ if(confirm('Mark UNSOLD?')){
+  log(players[state.i].name+' UNSOLD');
+  next();
+ }
 }
 
-// --- Skip / Prev ---
-function skipCurrent(){
-  stopAutoBid();
-  const p=players[state.currentIndex]; state.unsold.push(p);
-  unsoldList.innerHTML += `<div>${p.name}</div>`;
-  unsoldCountEl.textContent = state.unsold.length;
-  loadPlayer(state.currentIndex+1);
-}
-function prevPlayer(){ loadPlayer(state.currentIndex-1); }
-
-// --- Top Players ---
-function updateTopPlayers(){
-  const top = players.filter(p=>p.sold).sort((a,b)=>b.finalBid-a.finalBid).slice(0,5);
-  topPlayersEl.innerHTML = top.map(p=>`<div>${p.name} - ${p.finalTeam} (${formatLakhToCr(p.finalBid)})</div>`).join('');
+function next(){
+ state.i++;
+ if(state.i>=players.length){
+  alert('Auction Completed');
+  document.querySelectorAll('button').forEach(b=>b.disabled=true);
+  return;
+ }
+ load();
 }
 
-// --- Dashboard Totals ---
-function updateDashboardTotals(){
-  const soldPlayers = players.filter(p => p.sold).length;
-  totalPlayersEl.textContent = soldPlayers;
-  const totalSpent = state.teams.reduce((sum,t)=>sum + (t.spent||0), 0);
-  totalSpentEl.textContent = totalSpent.toFixed(2) + ' Cr';
-}
-
-// --- Reset Auction ---
-function resetAuction(){
-  if(!confirm('Reset auction progress (keeps teams)?')) return;
-  state.currentIndex=0; state.highestBid=0; state.highestBy=null; state.soldCount=0; state.unsold=[];
-  soldCountEl.textContent=0; unsoldCountEl.textContent=0; unsoldList.innerHTML='';
-  players.forEach(p=>{ delete p.sold; delete p.finalBid; delete p.finalTeam; });
-  renderTeamsSummary(); updateTopPlayers(); updateDashboardTotals();
-  loadPlayer(0);
-}
-
-// --- Event Listeners ---
-createTeamBtn.onclick=()=>createTeam(teamNameIn.value,teamLogoIn.value,teamPurseIn.value,teamRTMIn.value);
-resetTeamsBtn.onclick=resetTeams;
-maxTeamSizeIn.onchange=()=>state.maxTeamSize=Number(maxTeamSizeIn.value);
-defaultPurseIn.onchange=()=>state.defaultPurse=Number(defaultPurseIn.value);
-bidStepSelect.onchange=()=>{state.bidStepLakh=Number(bidStepSelect.value); showStep.textContent=(state.bidStepLakh>=100)? (state.bidStepLakh/100)+'Cr': state.bidStepLakh+'L';};
-prevPlayerBtn.onclick=prevPlayer;
-skipPlayerBtn.onclick=skipCurrent;
-sellPlayerBtn.onclick=sellPlayer;
-resetAuctionBtn.onclick=resetAuction;
-useRTMBtn.onclick=useRTM;
-autoBidBtn.onclick=toggleAutoBid;
-
-// --- Init Default Teams ---
-const defaultTeams=[
-  {name:'CSK',logo:'https://documents.iplt20.com/ipl/CSK/logos/Logooutline/CSKoutline.png'},
-  {name:'MI',logo:'https://documents.iplt20.com/ipl/MI/Logos/Logooutline/MIoutline.png'},
-  {name:'RCB',logo:'https://documents.iplt20.com/ipl/RCB/Logos/Logooutline/RCBoutline.png'},
-  {name:'KKR',logo:'https://documents.iplt20.com/ipl/KKR/Logos/Logooutline/KKRoutline.png'},
-  {name:'GT',logo:'https://documents.iplt20.com/ipl/GT/Logos/Logooutline/GToutline.png'},
-  {name:'LSG',logo:'https://documents.iplt20.com/ipl/LSG/Logos/Logooutline/LSGoutline.png'},
-  {name:'RR',logo:'https://www.financialexpress.com/wp-content/uploads/2025/03/Rajasthan-Royals-RR-IPL-2025-full-Squad-Players-List_20250318135011.jpg'},
-  {name:'SRH',logo:'https://documents.iplt20.com/ipl/SRH/Logos/Logooutline/SRHoutline.png'},
-  {name:'DC',logo:'https://documents.iplt20.com/ipl/DC/Logos/LogoOutline/DCoutline.png'},
-  {name:'PBKS',logo:'https://documents.iplt20.com/ipl/PBKS/Logos/Logooutline/PBKSoutline.png'}
-];
-
-defaultTeams.forEach(t=>createTeam(t.name,t.logo,100,3));
-loadPlayer(0);
+/* ---------- INIT ---------- */
+renderTeams();
+load();
 </script>
 </body>
 </html>
